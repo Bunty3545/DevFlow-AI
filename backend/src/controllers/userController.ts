@@ -43,7 +43,17 @@ export const updateUserRole = async (req: AuthRequest, res: Response): Promise<v
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
-      data: user
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        organization: user.organization,
+        phone: user.phone,
+        isActive: user.isActive,
+        assignedProjects: user.assignedProjects
+      }
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

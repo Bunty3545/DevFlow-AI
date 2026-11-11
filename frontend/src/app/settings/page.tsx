@@ -1,30 +1,77 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../services/api';
 import {
-  Settings,
-  Shield,
   Key,
   Sliders,
   Bell,
-  Database,
   CheckCircle2,
-  RefreshCw,
-  Sparkles
+  AlertCircle,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
+  const [hasKey, setHasKey] = useState(false);
+  const [maskedKey, setMaskedKey] = useState('');
   const [cpiCutoff, setCpiCutoff] = useState('0.85');
   const [spiCutoff, setSpiCutoff] = useState('0.85');
   const [criticalCutoff, setCriticalCutoff] = useState('75');
+  const [tokenBudgetLimit, setTokenBudgetLimit] = useState('1000000');
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await api.getSettings();
+      if (res.success && res.data) {
+        setHasKey(Boolean(res.data.hasGeminiApiKey));
+        setMaskedKey(res.data.maskedGeminiApiKey || '');
+        setCpiCutoff(String(res.data.cpiCutoff ?? '0.85'));
+        setSpiCutoff(String(res.data.spiCutoff ?? '0.85'));
+        setCriticalCutoff(String(res.data.criticalCutoff ?? '75'));
+        setTokenBudgetLimit(String(res.data.tokenBudgetLimit ?? '1000000'));
+        setEmailAlerts(Boolean(res.data.emailAlerts ?? true));
+      }
+    } catch (err) {
+      // Ignore initial load error if unauthenticated
+    }
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setError('');
+    setSaved(false);
+    setSaving(true);
+    try {
+      const res = await api.updateSettings({
+        geminiApiKey: apiKey.trim() || undefined,
+        cpiCutoff: Number(cpiCutoff),
+        spiCutoff: Number(spiCutoff),
+        criticalCutoff: Number(criticalCutoff),
+        tokenBudgetLimit: Number(tokenBudgetLimit),
+        emailAlerts
+      });
+      if (res.success && res.data) {
+        setHasKey(Boolean(res.data.hasGeminiApiKey));
+        setMaskedKey(res.data.maskedGeminiApiKey || '');
+        setApiKey('');
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3500);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save configuration. Make sure you are signed in as Administrator or Officer.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -41,39 +88,86 @@ export default function SettingsPage() {
 
       {saved && (
         <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 flex items-center space-x-2">
-          <CheckCircle2 className="h-4 w-4" />
-          <span>Platform configuration parameters updated successfully!</span>
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          <span>Platform configuration updated and active immediately for DevFlow AI Copilot!</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-800 text-xs text-red-700 dark:text-red-300 flex items-center space-x-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
         </div>
       )}
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Section 1: LLM & Gemini Engine */}
         <div className="p-5 rounded-2xl border border-gov-border dark:border-gov-darkBorder bg-white dark:bg-gov-darkCard shadow-sm space-y-4">
-          <div className="flex items-center space-x-2 text-slate-900 dark:text-white font-bold text-sm">
-            <Sparkles className="h-4 w-4 text-blue-600" />
-            <h2>AI Assistant & LLM Integration (Google Gemini API)</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-2 text-slate-900 dark:text-white font-bold text-sm">
+              <Sparkles className="h-4 w-4 text-blue-600" />
+              <h2>AI Assistant & LLM Integration (Google Gemini API)</h2>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                hasKey
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+              }`}
+            >
+              {hasKey ? `Active (${maskedKey})` : 'Not Configured (Fallback Mode)'}
+            </span>
           </div>
+
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            DevFlow AI supports live neural reasoning via Google Gemini API. If an API key is not supplied or offline, the platform automatically utilizes its high-performance rule-based statistical engine.
+            DevFlow AI supports real-time multimodal reasoning (voice, text & screenshot analysis) via Google Gemini API. Paste your key below to activate it immediately without restarting the server.
           </p>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Gemini API Key
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Gemini API Key {hasKey ? '(leave blank to keep existing active key)' : ''}
+              </label>
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center space-x-1 text-[11px] text-blue-600 hover:underline font-medium"
+              >
+                <span>Get Key from Google AI Studio</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </div>
             <div className="relative">
               <Key className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
                 type="password"
-                placeholder="AIzaSy..."
+                placeholder={hasKey ? `Active key: ${maskedKey} (enter new key to replace)` : 'AIzaSy...'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <p className="text-[10px] text-slate-400 mt-1">
-              Stored securely in backend environment. Fallback MoSPI predictive intelligence remains active.
+              Persisted locally in backend runtime config (`backend/.env` `GEMINI_API_KEY` is also supported).
             </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              Total AI Token Quota Budget (for Usage &amp; Remaining Tracker)
+            </label>
+            <input
+              type="number"
+              min={1000}
+              step={10000}
+              value={tokenBudgetLimit}
+              onChange={(e) => setTokenBudgetLimit(e.target.value)}
+              className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
+            />
+            <span className="text-[10px] text-slate-400 mt-0.5 block">
+              Default: 1,000,000 tokens. Used and Remaining tokens update live from Gemini usageMetadata.
+            </span>
           </div>
         </div>
 
@@ -155,13 +249,13 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md transition-colors"
+            disabled={saving}
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-md transition-colors disabled:opacity-50"
           >
-            Save Configuration Changes
+            {saving ? 'Saving...' : 'Save Configuration Changes'}
           </button>
         </div>
       </form>
     </div>
   );
 }
-

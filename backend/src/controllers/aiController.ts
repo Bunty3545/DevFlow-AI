@@ -3,17 +3,54 @@ import { AuthRequest } from '../middleware/auth';
 import { askInfraAssistant } from '../services/geminiService';
 import { ProjectRepo, IssueRepo, MilestoneRepo } from '../models/store';
 import { calculateProjectRisk } from '../services/riskEngine';
+import { config } from '../config/config';
+import { systemSettings, persistSystemSettings, getTokenStats } from '../config/memoryStore';
+
+export const getAiStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  const activeKey = (systemSettings.geminiApiKey || config.geminiApiKey || '').trim();
+  res.status(200).json({
+    success: true,
+    geminiConfigured: activeKey.length > 10,
+    mode: activeKey.length > 10 ? 'gemini_live' : 'statistical_fallback',
+    tokenStats: getTokenStats()
+  });
+};
+
+export const resetTokenStats = async (req: AuthRequest, res: Response): Promise<void> => {
+  const { totalBudget } = req.body || {};
+  if (totalBudget !== undefined && !Number.isNaN(Number(totalBudget)) && Number(totalBudget) > 0) {
+    systemSettings.tokenBudgetLimit = Number(totalBudget);
+  } else {
+    systemSettings.tokenUsage.totalUsed = 0;
+    systemSettings.tokenUsage.promptUsed = 0;
+    systemSettings.tokenUsage.responseUsed = 0;
+    systemSettings.tokenUsage.requestsCount = 0;
+  }
+  persistSystemSettings();
+  res.status(200).json({
+    success: true,
+    message: 'Token stats updated.',
+    tokenStats: getTokenStats()
+  });
+};
 
 export const handleAiQuery = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { message, projectId } = req.body;
+    const { message, projectId, image, history } = req.body;
 
-    if (!message || typeof message !== 'string') {
-      res.status(400).json({ success: false, message: 'Message query is required.' });
+    const hasMessage = typeof message === 'string' && message.trim().length > 0;
+    const hasImage = Boolean(image && typeof image.data === 'string' && image.data.trim().length > 0);
+
+    if (!hasMessage && !hasImage) {
+      res.status(400).json({ success: false, message: 'Message query or screenshot image is required.' });
       return;
     }
 
-    const aiResponse = await askInfraAssistant(message, projectId);
+    const aiResponse = await askInfraAssistant(hasMessage ? message : '', {
+      specificProjectId: projectId || undefined,
+      image: hasImage ? image : undefined,
+      history: Array.isArray(history) ? history : []
+    });
 
     res.status(200).json({
       success: true,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import {
@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateLocalUser } = useAuth();
   const [name, setName] = useState(user?.name || '');
   const [department, setDepartment] = useState(user?.department || '');
   const [organization, setOrganization] = useState(user?.organization || '');
@@ -24,17 +24,29 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '');
+      setDepartment(user.department || '');
+      setOrganization(user.organization || '');
+      setPhone(user.phone || '');
+    }
+  }, [user]);
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await api.updateProfile({
+      const res = await api.updateProfile({
         name,
         department,
         organization,
         phone,
         password: newPassword || undefined
       });
+      if (res?.user) {
+        updateLocalUser(res.user);
+      }
       setSaved(true);
       setNewPassword('');
       setTimeout(() => setSaved(false), 3000);

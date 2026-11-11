@@ -42,6 +42,27 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   return data;
 }
 
+export async function downloadAuthenticatedFile(endpoint: string, filename: string) {
+  const token = getAuthToken();
+  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {}
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.message || `Download failed: ${res.statusText}`);
+  }
+  const blob = await res.blob();
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(blobUrl);
+}
+
 export const api = {
   // Auth
   login: (credentials: any) => fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
@@ -68,7 +89,18 @@ export const api = {
   getDashboardAnalytics: () => fetchApi('/analytics/dashboard'),
 
   // AI Assistant
-  queryAi: (data: { message: string; projectId?: string }) => fetchApi('/ai/chat', { method: 'POST', body: JSON.stringify(data) }),
+  getAiStatus: () => fetchApi('/ai/status'),
+  resetTokenStats: (totalBudget?: number) =>
+    fetchApi('/ai/tokens/reset', {
+      method: 'POST',
+      body: JSON.stringify(totalBudget ? { totalBudget } : {})
+    }),
+  queryAi: (data: {
+    message: string;
+    projectId?: string;
+    image?: { data: string; mimeType: string };
+    history?: Array<{ role: 'user' | 'assistant'; text: string }>;
+  }) => fetchApi('/ai/chat', { method: 'POST', body: JSON.stringify(data) }),
   getProjectAiAudit: (projectId: string) => fetchApi(`/ai/audit/${projectId}`),
 
   // Issues
@@ -92,6 +124,19 @@ export const api = {
   getComprehensiveReport: () => fetchApi('/reports/comprehensive'),
   downloadExcelUrl: `${API_BASE_URL}/reports/export/excel`,
   downloadCsvUrl: `${API_BASE_URL}/reports/export/csv`,
+  downloadExcel: () => downloadAuthenticatedFile('/reports/export/excel', 'DevFlow_Projects_Report.xlsx'),
+  downloadCsv: () => downloadAuthenticatedFile('/reports/export/csv', 'DevFlow_Projects_Report.csv'),
+
+  // Settings
+  getSettings: () => fetchApi('/settings'),
+  updateSettings: (data: {
+    geminiApiKey?: string;
+    cpiCutoff?: number;
+    spiCutoff?: number;
+    criticalCutoff?: number;
+    emailAlerts?: boolean;
+    tokenBudgetLimit?: number;
+  }) => fetchApi('/settings', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Users
   getUsers: () => fetchApi('/users'),
