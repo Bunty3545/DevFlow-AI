@@ -14,6 +14,7 @@ build/
 # Backend Build
 dist/
 backend/dist/
+*.tsbuildinfo
 
 # Environment Variables
 .env
@@ -21,6 +22,7 @@ backend/dist/
 .env.development.local
 .env.test.local
 .env.production.local
+.runtime-settings.json
 
 # Databases & Docker Volumes
 mongo_data/
@@ -38,3 +40,4 @@ desktop.ini
 
 # Antigravity & Scratch
 .antigravity/
+

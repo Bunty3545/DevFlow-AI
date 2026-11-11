@@ -15,16 +15,47 @@ const clone = <T>(obj: T): T => JSON.parse(JSON.stringify(obj));
 export const UserRepo = {
   async countDocuments(filter: any = {}): Promise<number> {
     if (!isMemoryMode) return User.countDocuments(filter);
-    return memoryStore.users.length;
+    let list = [...memoryStore.users];
+    if (filter.role) list = list.filter(u => u.role === filter.role);
+    if (filter.isActive !== undefined) list = list.filter(u => u.isActive === filter.isActive);
+    if (filter.email) list = list.filter(u => u.email.toLowerCase() === filter.email.toLowerCase());
+    return list.length;
   },
 
   async find(filter: any = {}): Promise<IUser[]> {
     if (!isMemoryMode) return User.find(filter).select('-password');
-    return memoryStore.users.map(u => {
+    let list = [...memoryStore.users];
+    if (filter.role) list = list.filter(u => u.role === filter.role);
+    if (filter.isActive !== undefined) list = list.filter(u => u.isActive === filter.isActive);
+    return list.map(u => {
       const copy = { ...u };
       delete copy.password;
       return copy;
     });
+  },
+
+  wrapUser(user: any): IUser | null {
+    if (!user) return null;
+    const initialPasswordHash = user.password;
+    return {
+      ...user,
+      comparePassword: async (candidate: string) => bcrypt.compare(candidate, user.password),
+      save: async function() {
+        const idx = memoryStore.users.findIndex(u => u._id.toString() === this._id.toString());
+        if (idx !== -1) {
+          const updated = { ...this, updatedAt: new Date() };
+          delete updated.comparePassword;
+          delete updated.save;
+          if (updated.password && updated.password !== initialPasswordHash) {
+            const salt = await bcrypt.genSalt(10);
+            updated.password = await bcrypt.hash(updated.password, salt);
+          }
+          memoryStore.users[idx] = updated;
+          user.password = updated.password;
+        }
+        return this;
+      }
+    } as any;
   },
 
   async findOne(filter: any): Promise<IUser | null> {
@@ -35,16 +66,7 @@ export const UserRepo = {
     } else if (filter._id) {
       user = memoryStore.users.find(u => u._id.toString() === filter._id.toString());
     }
-    if (!user) return null;
-    return {
-      ...user,
-      comparePassword: async (candidate: string) => bcrypt.compare(candidate, user.password),
-      save: async function() {
-        const idx = memoryStore.users.findIndex(u => u._id.toString() === this._id.toString());
-        if (idx !== -1) memoryStore.users[idx] = { ...this };
-        return this;
-      }
-    } as any;
+    return this.wrapUser(user);
   },
 
   async findById(id: string): Promise<IUser | null> {
@@ -65,15 +87,7 @@ export const UserRepo = {
       updatedAt: new Date()
     };
     memoryStore.users.push(doc);
-    return {
-      ...doc,
-      comparePassword: async (candidate: string) => bcrypt.compare(candidate, hashedPassword),
-      save: async function() {
-        const idx = memoryStore.users.findIndex(u => u._id.toString() === this._id.toString());
-        if (idx !== -1) memoryStore.users[idx] = { ...this };
-        return this;
-      }
-    } as any;
+    return this.wrapUser(doc) as IUser;
   },
 
   async findByIdAndDelete(id: string): Promise<boolean> {
@@ -137,7 +151,7 @@ export const ProjectRepo = {
     if (options.sort) {
       const key = Object.keys(options.sort)[0];
       const dir = options.sort[key];
-      list.sort((a, b) => (a[key] > b[key] ? dir : -dir));
+      list.sort((a, b) => (a[key] === b[key] ? 0 : a[key] > b[key] ? dir : -dir));
     }
     if (options.skip) list = list.slice(options.skip);
     if (options.limit) list = list.slice(0, options.limit);
@@ -274,7 +288,8 @@ export const MilestoneRepo = {
 export const IssueRepo = {
   async countDocuments(filter: any = {}): Promise<number> {
     if (!isMemoryMode) return Issue.countDocuments(filter);
-    return memoryStore.issues.length;
+    const list = await this.find(filter);
+    return list.length;
   },
 
   async find(filter: any = {}): Promise<any[]> {

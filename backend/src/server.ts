@@ -17,6 +17,7 @@ import milestoneRoutes from './routes/milestoneRoutes';
 import financialRoutes from './routes/financialRoutes';
 import reportRoutes from './routes/reportRoutes';
 import userRoutes from './routes/userRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/financials', financialRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Centralized error handling
 app.use(errorHandler);

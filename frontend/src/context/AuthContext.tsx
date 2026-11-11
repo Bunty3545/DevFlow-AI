@@ -26,6 +26,7 @@ interface AuthContextType {
   register: (data: any) => Promise<void>;
   logout: () => void;
   switchRoleForDemo: (role: UserRole) => Promise<void>;
+  updateLocalUser: (partial: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,6 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await login(c.email, c.pass);
   };
 
+  const updateLocalUser = (partial: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const merged = { ...prev, ...partial };
+      localStorage.setItem('infrawatch_user', JSON.stringify(merged));
+      return merged;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -112,7 +122,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
-        switchRoleForDemo
+        switchRoleForDemo,
+        updateLocalUser
       }}
     >
       {children}

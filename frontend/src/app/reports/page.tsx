@@ -21,6 +21,22 @@ export default function ReportsPage() {
   const [reportData, setReportData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [downloadingType, setDownloadingType] = useState<'excel' | 'csv' | null>(null);
+
+  const handleAuthenticatedDownload = async (type: 'excel' | 'csv') => {
+    setDownloadingType(type);
+    try {
+      if (type === 'excel') {
+        await api.downloadExcel();
+      } else {
+        await api.downloadCsv();
+      }
+    } catch (err: any) {
+      alert(err.message || `Failed to export ${type.toUpperCase()} report`);
+    } finally {
+      setDownloadingType(null);
+    }
+  };
 
   useEffect(() => {
     fetchReportData();
@@ -148,25 +164,23 @@ export default function ReportsPage() {
             <span>{generatingPdf ? 'Generating...' : 'Export PDF Dossier'}</span>
           </button>
 
-          <a
-            href={api.downloadExcelUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
+          <button
+            onClick={() => handleAuthenticatedDownload('excel')}
+            disabled={downloadingType === 'excel'}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
           >
             <FileSpreadsheet className="h-4 w-4" />
-            <span>Download Excel (.xlsx)</span>
-          </a>
+            <span>{downloadingType === 'excel' ? 'Downloading...' : 'Download Excel (.xlsx)'}</span>
+          </button>
 
-          <a
-            href={api.downloadCsvUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-colors"
+          <button
+            onClick={() => handleAuthenticatedDownload('csv')}
+            disabled={downloadingType === 'csv'}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
           >
             <Download className="h-4 w-4" />
-            <span>CSV Dataset</span>
-          </a>
+            <span>{downloadingType === 'csv' ? 'Downloading...' : 'CSV Dataset'}</span>
+          </button>
         </div>
       </div>
 
