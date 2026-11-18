@@ -20,6 +20,7 @@ const loadSavedSettings = () => {
 };
 
 const savedSettings = loadSavedSettings();
+const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
 // Runtime platform settings (persisted to .runtime-settings.json + config)
 export const systemSettings = {
@@ -28,19 +29,45 @@ export const systemSettings = {
   spiCutoff: typeof savedSettings.spiCutoff === 'number' ? savedSettings.spiCutoff : 0.85,
   criticalCutoff: typeof savedSettings.criticalCutoff === 'number' ? savedSettings.criticalCutoff : 75,
   emailAlerts: typeof savedSettings.emailAlerts === 'boolean' ? savedSettings.emailAlerts : true,
-  tokenBudgetLimit: typeof savedSettings.tokenBudgetLimit === 'number' ? savedSettings.tokenBudgetLimit : 1000000,
+  tokenBudgetLimit: 10000,
   tokenUsage: {
     totalUsed: typeof savedSettings.tokenUsage?.totalUsed === 'number' ? savedSettings.tokenUsage.totalUsed : 0,
     promptUsed: typeof savedSettings.tokenUsage?.promptUsed === 'number' ? savedSettings.tokenUsage.promptUsed : 0,
     responseUsed: typeof savedSettings.tokenUsage?.responseUsed === 'number' ? savedSettings.tokenUsage.responseUsed : 0,
     requestsCount: typeof savedSettings.tokenUsage?.requestsCount === 'number' ? savedSettings.tokenUsage.requestsCount : 0,
-    lastModel: typeof savedSettings.tokenUsage?.lastModel === 'string' ? savedSettings.tokenUsage.lastModel : 'gemini-3.8-flash',
-    contextWindowLimit: typeof savedSettings.tokenUsage?.contextWindowLimit === 'number' ? savedSettings.tokenUsage.contextWindowLimit : 1048576
+    lastModel: typeof savedSettings.tokenUsage?.lastModel === 'string' ? savedSettings.tokenUsage.lastModel : 'gemini-2.0-flash',
+    contextWindowLimit: typeof savedSettings.tokenUsage?.contextWindowLimit === 'number' ? savedSettings.tokenUsage.contextWindowLimit : 1048576,
+    lastResetDate: typeof savedSettings.tokenUsage?.lastResetDate === 'string' ? savedSettings.tokenUsage.lastResetDate : getTodayDateString()
   }
 };
 
+export const checkAndPerformDailyMidnightReset = (): boolean => {
+  const today = getTodayDateString();
+  const lastReset = systemSettings.tokenUsage.lastResetDate;
+  if (!lastReset || lastReset !== today) {
+    console.log(`[Token Tracker] 🕛 Daily midnight reset executed at 12:00 AM. Transitioning from '${lastReset || 'none'}' to '${today}'. Resetting daily token tallies.`);
+    systemSettings.tokenUsage.totalUsed = 0;
+    systemSettings.tokenUsage.promptUsed = 0;
+    systemSettings.tokenUsage.responseUsed = 0;
+    systemSettings.tokenUsage.requestsCount = 0;
+    systemSettings.tokenUsage.lastResetDate = today;
+    persistSystemSettings();
+    return true;
+  }
+  return false;
+};
+
+// Automatic background interval checking for 12:00 AM midnight transition every 60 seconds
+setInterval(() => {
+  try {
+    checkAndPerformDailyMidnightReset();
+  } catch {}
+}, 60 * 1000);
+
 export const getTokenStats = () => {
-  const totalBudget = systemSettings.tokenBudgetLimit;
+  checkAndPerformDailyMidnightReset();
+  const totalBudget = 10000;
+  systemSettings.tokenBudgetLimit = 10000;
   const usedTokens = systemSettings.tokenUsage.totalUsed;
   const remainingTokens = Math.max(0, totalBudget - usedTokens);
   return {
@@ -51,7 +78,9 @@ export const getTokenStats = () => {
     responseTokensUsed: systemSettings.tokenUsage.responseUsed,
     requestsCount: systemSettings.tokenUsage.requestsCount,
     lastModel: systemSettings.tokenUsage.lastModel,
-    contextWindowLimit: systemSettings.tokenUsage.contextWindowLimit
+    contextWindowLimit: systemSettings.tokenUsage.contextWindowLimit,
+    lastResetDate: systemSettings.tokenUsage.lastResetDate,
+    autoResetDailySchedule: '12:00 AM Midnight (Daily)'
   };
 };
 

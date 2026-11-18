@@ -42,9 +42,8 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
     if (emailAlerts !== undefined) {
       systemSettings.emailAlerts = Boolean(emailAlerts);
     }
-    if (tokenBudgetLimit !== undefined && !Number.isNaN(Number(tokenBudgetLimit)) && Number(tokenBudgetLimit) > 0) {
-      systemSettings.tokenBudgetLimit = Number(tokenBudgetLimit);
-    }
+    // Token budget is strictly fixed to 10,000 daily quota
+    systemSettings.tokenBudgetLimit = 10000;
 
     persistSystemSettings();
 

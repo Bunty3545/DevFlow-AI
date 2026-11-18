@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api } from '../../services/api';
 import {
   ShieldAlert,
@@ -66,7 +67,7 @@ export default function RiskAnalyticsPage() {
     : projects.filter(p => p.riskLevel === filterRisk);
 
   // Scatter chart data: X = SPI, Y = CPI, Z = RiskScore
-  const scatterData = projects.map(p => ({
+  const scatterData = filteredProjects.map(p => ({
     name: p.name,
     projectId: p.projectId,
     spi: p.spi,
@@ -75,6 +76,42 @@ export default function RiskAnalyticsPage() {
     riskLevel: p.riskLevel,
     approvedCost: p.approvedCost
   }));
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      if (!data) return null;
+      const riskBadge =
+        data.riskLevel === 'Critical' ? 'bg-red-500/20 text-red-300 border-red-500/30' :
+        data.riskLevel === 'High' ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' :
+        data.riskLevel === 'Medium' ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+        'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+
+      return (
+        <div className="pointer-events-none -translate-x-1/2 -translate-y-full -mt-2 z-50">
+          <div className="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-sm border border-slate-700/80 px-2.5 py-1.5 rounded-lg shadow-xl text-white text-[11px] whitespace-nowrap">
+            <div className="flex items-center gap-1.5 mb-1 font-semibold text-slate-100 max-w-[220px]">
+              <span className="font-mono text-[9px] text-slate-400 bg-slate-800 px-1 py-0.5 rounded border border-slate-700 shrink-0">
+                {data.projectId}
+              </span>
+              <span className="truncate text-[11px] text-slate-100">{data.name}</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-300">
+              <span className={`px-1.5 py-0.5 rounded font-bold border text-[9px] leading-none ${riskBadge}`}>
+                {data.riskLevel} ({data.riskScore})
+              </span>
+              <span className="text-slate-400">SPI: <strong className="font-mono text-emerald-400">{data.spi}</strong></span>
+              <span className="text-slate-500">•</span>
+              <span className="text-slate-400">CPI: <strong className="font-mono text-blue-400">{data.cpi}</strong></span>
+            </div>
+          </div>
+          {/* Downward triangle pointer pointing at the dot */}
+          <div className="w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-700/80 mx-auto" />
+        </div>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="space-y-6">
@@ -152,15 +189,10 @@ export default function RiskAnalyticsPage() {
               <ReferenceLine x={1.0} stroke="#94A3B8" strokeDasharray="3 3" label={{ value: 'SPI Baseline', fontSize: 9 }} />
               <ReferenceLine y={1.0} stroke="#94A3B8" strokeDasharray="3 3" label={{ value: 'CPI Baseline', fontSize: 9 }} />
               <Tooltip
-                cursor={{ strokeDasharray: '3 3' }}
-                contentStyle={{
-                  backgroundColor: '#0F172A',
-                  borderColor: '#334155',
-                  borderRadius: '8px',
-                  fontSize: '11px',
-                  color: '#fff'
-                }}
-                formatter={(val: any, name: string) => [val, name]}
+                content={<CustomTooltip />}
+                cursor={{ strokeDasharray: '3 3', stroke: '#94A3B8' }}
+                isAnimationActive={false}
+                wrapperStyle={{ pointerEvents: 'none' }}
               />
               <Scatter
                 name="Projects"
@@ -172,7 +204,17 @@ export default function RiskAnalyticsPage() {
               >
                 {scatterData.map((entry, index) => {
                   const color = entry.riskLevel === 'Critical' ? '#EF4444' : entry.riskLevel === 'High' ? '#F97316' : entry.riskLevel === 'Medium' ? '#F59E0B' : '#10B981';
-                  return <Cell key={`cell-${index}`} fill={color} className="cursor-pointer hover:opacity-80 transition-opacity" />;
+                  const isSelected = selectedProject?.projectId === entry.projectId;
+                  return (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={color}
+                      stroke={isSelected ? '#38BDF8' : '#ffffff'}
+                      strokeWidth={isSelected ? 2.5 : 1}
+                      strokeOpacity={isSelected ? 1 : 0.7}
+                      className="cursor-pointer transition-all duration-150"
+                    />
+                  );
                 })}
               </Scatter>
             </ScatterChart>
@@ -203,10 +245,17 @@ export default function RiskAnalyticsPage() {
               </h2>
             </div>
 
-            <div className="flex items-center space-x-3 text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-xs">
               <span className="text-slate-400">Sector: <strong>{selectedProject.sector}</strong></span>
               <span className="text-slate-300 dark:text-slate-700">|</span>
               <span className="text-slate-400">Location: <strong>{selectedProject.district}, {selectedProject.state}</strong></span>
+              <Link
+                href={`/ai-assistant?projectId=${selectedProject.projectId}&query=${encodeURIComponent(`Analyze ${selectedProject.name} (${selectedProject.projectId}) risks, schedule slippage, and recommend corrective actions.`)}`}
+                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-medium shadow-sm transition-all text-xs"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-yellow-300 animate-pulse" />
+                <span>Ask AI Copilot</span>
+              </Link>
             </div>
           </div>
 
@@ -273,16 +322,32 @@ export default function RiskAnalyticsPage() {
               </p>
             </div>
 
-            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/20 text-xs">
-              <div className="flex items-center space-x-1.5 text-blue-700 dark:text-blue-300 font-bold mb-2">
-                <Sparkles className="h-4 w-4" />
-                <span>Recommended Corrective Actions (MoSPI Directive)</span>
+            <div className="p-4 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/40 dark:bg-blue-950/20 text-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-1.5 text-blue-700 dark:text-blue-300 font-bold">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Recommended Corrective Actions (MoSPI Directive)</span>
+                  </div>
+                  <Link
+                    href={`/ai-assistant?projectId=${selectedProject.projectId}&query=${encodeURIComponent(`Suggest corrective actions for ${selectedProject.name} (${selectedProject.projectId})`)}`}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1 font-semibold"
+                  >
+                    <span>AI Deep Audit</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                </div>
+                <ul className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300 list-disc pl-4">
+                  {selectedProject.cpi < 0.9 && (
+                    <li>Conduct forensic item-rate billing audit to contain CPI cost variance ({selectedProject.cpi}).</li>
+                  )}
+                  {selectedProject.plannedProgress - selectedProject.actualProgress > 8 && (
+                    <li>Mandate additional contractor civil shifts and specialized equipment to recover {(selectedProject.plannedProgress - selectedProject.actualProgress).toFixed(1)}% schedule lag.</li>
+                  )}
+                  <li>Convene ministerial task force with state authorities to clear pending utility relocations and statutory permissions.</li>
+                  <li>Institute biometric site attendance and drone LIDAR progress verification every 14 days.</li>
+                </ul>
               </div>
-              <ul className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300 list-disc pl-4">
-                <li>Deploy second civil shift for high-priority viaduct and structural sections.</li>
-                <li>Convene ministerial task force with state authorities to clear pending utility relocations.</li>
-                <li>Institute biometric site attendance and drone LIDAR verification every 14 days.</li>
-              </ul>
             </div>
           </div>
         </div>

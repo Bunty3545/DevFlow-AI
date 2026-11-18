@@ -66,9 +66,22 @@ export default function IssuesPage() {
 
       const res = await api.getIssues(params);
       if (res.success) {
-        setIssues(res.data);
-        if (res.data.length > 0 && !selectedIssue) {
-          setSelectedIssue(res.data[0]);
+        const rawList = res.data || [];
+        const cleanList = rawList.map((i: any) => {
+          if (i && i._doc) {
+            return { ...i._doc, isOverdue: i.isOverdue ?? i._doc.isOverdue };
+          }
+          return i;
+        });
+        setIssues(cleanList);
+        if (cleanList.length > 0) {
+          setSelectedIssue((prev: any) => {
+            if (!prev) return cleanList[0];
+            const updated = cleanList.find((item: any) => item.issueId === prev.issueId);
+            return updated || cleanList[0];
+          });
+        } else {
+          setSelectedIssue(null);
         }
       }
     } finally {
@@ -107,7 +120,9 @@ export default function IssuesPage() {
       setCommentText('');
       const updated = await api.getIssues({ projectId: selectedIssue.projectId });
       if (updated.success) {
-        const found = updated.data.find((i: any) => i.issueId === selectedIssue.issueId);
+        const rawList = updated.data || [];
+        const cleanList = rawList.map((i: any) => (i && i._doc ? { ...i._doc, isOverdue: i.isOverdue } : i));
+        const found = cleanList.find((i: any) => i.issueId === selectedIssue.issueId);
         if (found) setSelectedIssue(found);
       }
       fetchIssues();
@@ -309,7 +324,7 @@ export default function IssuesPage() {
                 <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900">
                   <span className="text-[10px] text-slate-400">Resolution Deadline</span>
                   <p className="font-bold text-slate-900 dark:text-white mt-0.5">
-                    {new Date(selectedIssue.dueDate).toLocaleDateString()}
+                    {selectedIssue.dueDate ? new Date(selectedIssue.dueDate).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
               </div>

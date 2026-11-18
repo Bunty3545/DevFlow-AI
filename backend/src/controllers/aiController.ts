@@ -17,19 +17,15 @@ export const getAiStatus = async (req: AuthRequest, res: Response): Promise<void
 };
 
 export const resetTokenStats = async (req: AuthRequest, res: Response): Promise<void> => {
-  const { totalBudget } = req.body || {};
-  if (totalBudget !== undefined && !Number.isNaN(Number(totalBudget)) && Number(totalBudget) > 0) {
-    systemSettings.tokenBudgetLimit = Number(totalBudget);
-  } else {
-    systemSettings.tokenUsage.totalUsed = 0;
-    systemSettings.tokenUsage.promptUsed = 0;
-    systemSettings.tokenUsage.responseUsed = 0;
-    systemSettings.tokenUsage.requestsCount = 0;
-  }
+  systemSettings.tokenBudgetLimit = 10000;
+  systemSettings.tokenUsage.totalUsed = 0;
+  systemSettings.tokenUsage.promptUsed = 0;
+  systemSettings.tokenUsage.responseUsed = 0;
+  systemSettings.tokenUsage.requestsCount = 0;
   persistSystemSettings();
   res.status(200).json({
     success: true,
-    message: 'Token stats updated.',
+    message: 'Token stats reset to fixed daily quota of 10,000.',
     tokenStats: getTokenStats()
   });
 };

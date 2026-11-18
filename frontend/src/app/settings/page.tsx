@@ -9,7 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Lock
 } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -19,7 +20,7 @@ export default function SettingsPage() {
   const [cpiCutoff, setCpiCutoff] = useState('0.85');
   const [spiCutoff, setSpiCutoff] = useState('0.85');
   const [criticalCutoff, setCriticalCutoff] = useState('75');
-  const [tokenBudgetLimit, setTokenBudgetLimit] = useState('1000000');
+  const [tokenBudgetLimit, setTokenBudgetLimit] = useState('10000');
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -38,7 +39,7 @@ export default function SettingsPage() {
         setCpiCutoff(String(res.data.cpiCutoff ?? '0.85'));
         setSpiCutoff(String(res.data.spiCutoff ?? '0.85'));
         setCriticalCutoff(String(res.data.criticalCutoff ?? '75'));
-        setTokenBudgetLimit(String(res.data.tokenBudgetLimit ?? '1000000'));
+        setTokenBudgetLimit(String(res.data.tokenBudgetLimit ?? '10000'));
         setEmailAlerts(Boolean(res.data.emailAlerts ?? true));
       }
     } catch (err) {
@@ -57,7 +58,7 @@ export default function SettingsPage() {
         cpiCutoff: Number(cpiCutoff),
         spiCutoff: Number(spiCutoff),
         criticalCutoff: Number(criticalCutoff),
-        tokenBudgetLimit: Number(tokenBudgetLimit),
+        tokenBudgetLimit: 10000,
         emailAlerts
       });
       if (res.success && res.data) {
@@ -154,19 +155,29 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-              Total AI Token Quota Budget (for Usage &amp; Remaining Tracker)
-            </label>
-            <input
-              type="number"
-              min={1000}
-              step={10000}
-              value={tokenBudgetLimit}
-              onChange={(e) => setTokenBudgetLimit(e.target.value)}
-              className="w-full p-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-            />
-            <span className="text-[10px] text-slate-400 mt-0.5 block">
-              Default: 1,000,000 tokens. Used and Remaining tokens update live from Gemini usageMetadata.
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Daily AI Token Quota Budget
+              </label>
+              <span className="inline-flex items-center space-x-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <Lock className="h-3 w-3 text-slate-400" />
+                <span>Fixed Policy (Read-Only)</span>
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                readOnly
+                disabled
+                value="10,000 Tokens / Day (Fixed Daily Quota)"
+                className="w-full p-2.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 cursor-not-allowed select-none"
+              />
+              <span className="absolute right-2.5 top-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                10,000 / Day Fixed
+              </span>
+            </div>
+            <span className="text-[10px] text-slate-400 mt-1 block">
+              Budget is locked to 10,000 tokens per day. Automatically resets to 10,000 tokens at 12:00 AM midnight every day.
             </span>
           </div>
         </div>

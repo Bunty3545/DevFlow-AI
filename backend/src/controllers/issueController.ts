@@ -16,9 +16,10 @@ export const getIssues = async (req: AuthRequest, res: Response): Promise<void> 
 
     const now = new Date();
     const enriched = issues.map((iss: any) => {
-      const isOverdue = iss.status !== 'Resolved' && iss.status !== 'Closed' && new Date(iss.dueDate) < now;
+      const doc = iss.toObject ? iss.toObject() : (iss._doc ? { ...iss._doc } : { ...iss });
+      const isOverdue = doc.status !== 'Resolved' && doc.status !== 'Closed' && new Date(doc.dueDate) < now;
       return {
-        ...iss,
+        ...doc,
         isOverdue
       };
     });
